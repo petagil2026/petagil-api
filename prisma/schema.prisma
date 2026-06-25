@@ -1,0 +1,131 @@
+// Prisma schema — PetÁgil API
+// Datasource: PostgreSQL no Supabase.
+//   url       -> conexão "pooled" (pgBouncer :6543, com ?pgbouncer=true) usada pela aplicação.
+//   directUrl -> conexão direta (:5432) usada por `prisma migrate`.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  TUTOR
+  VET
+  PASSEADOR
+}
+
+enum Species {
+  DOG
+  CAT
+  BIRD
+  REPTILE
+}
+
+enum VetVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  // Papel "primário" escolhido no signup. O que o usuário PODE fazer é definido
+  // pelos perfis abaixo (multi-perfil: pode ter mais de um).
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tutorProfile  TutorProfile?
+  vetProfile    VetProfile?
+  walkerProfile WalkerProfile?
+  pets          Pet[]
+}
+
+/// Perfil de Tutor (dono de pet). 1:1 opcional com User.
+model TutorProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsapp  String
+  city      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Perfil de Veterinário (com CRMV + clínica). 1:1 opcional com User.
+model VetProfile {
+  id             String                @id @default(uuid())
+  userId         String                @unique
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photoUrl       String?
+  crmvNumber     String
+  crmvUf         String
+  specialties    String[] // ex.: "Clínica geral", "Silvestres"
+  bio            String?
+  servesAtClinic Boolean               @default(false)
+  servesAtHome   Boolean               @default(false)
+  clinicName     String?
+  clinicAddress  String?
+  crmvDocUrl     String? // carteira do CRMV anexada (opcional)
+  verification   VetVerificationStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([crmvNumber, crmvUf])
+}
+
+/// Perfil de Passeador (dog walker). 1:1 opcional com User.
+model WalkerProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photoUrl     String?
+  city         String
+  bio          String?
+  petTypes     String[] // ex.: "Cães", "Gatos", "Pequenos"
+  region       String
+  pricePerWalk Int // em centavos de BRL
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Pet do tutor. N:1 com User (dono).
+model Pet {
+  id           String        @id @default(uuid())
+  ownerId      String
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  species      Species
+  breed        String?
+  ageYears     Int?
+  photoUrl     String?
+  vaccinations Vaccination[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([ownerId])
+}
+
+/// Item da carteira de vacinação de um Pet.
+model Vaccination {
+  id         String    @id @default(uuid())
+  petId      String
+  pet        Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  name       String
+  date       DateTime?
+  nextDoseAt DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([petId])
+}
