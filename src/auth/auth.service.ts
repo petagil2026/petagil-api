@@ -68,7 +68,10 @@ export class AuthService {
     }
 
     const passwordHash = await argon2.hash(dto.password)
-    const user = await this.users.create({
+    // createWithProfile cria User + (se tutor) TutorProfile atomicamente; o
+    // findByEmail acima é só atalho p/ 409 no caso comum — a corrida é coberta
+    // pelo P2002 dentro do createWithProfile (F3). AuthService não toca Prisma.
+    const user = await this.users.createWithProfile({
       name: dto.name,
       email: dto.email,
       passwordHash,

@@ -10,7 +10,7 @@ import { AuthService } from './auth.service'
 interface UsersMock {
   findByEmail: jest.Mock
   findById: jest.Mock
-  create: jest.Mock
+  createWithProfile: jest.Mock
 }
 
 const ENV: Record<string, string> = {
@@ -44,7 +44,7 @@ describe('AuthService', () => {
     users = {
       findByEmail: jest.fn(),
       findById: jest.fn(),
-      create: jest.fn(),
+      createWithProfile: jest.fn(),
     }
     jwt = {
       signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
@@ -65,7 +65,7 @@ describe('AuthService', () => {
   describe('register', () => {
     it('hasheia a senha e emite os 3 tokens + user público (role minúsculo)', async () => {
       users.findByEmail.mockResolvedValue(null)
-      users.create.mockImplementation(
+      users.createWithProfile.mockImplementation(
         (data: { passwordHash: string; role: Role }): User =>
           makeUser({ passwordHash: data.passwordHash, role: data.role })
       )
@@ -73,12 +73,14 @@ describe('AuthService', () => {
       const result = await service.register({
         name: 'Maria',
         email: 'maria@petagil.app',
+        phone: '+55 11 99999-0000',
+        city: 'São Paulo',
         password: 'Petagil123',
         role: 'tutor',
       })
 
-      expect(users.create).toHaveBeenCalledTimes(1)
-      const createArg = users.create.mock.calls[0][0] as { passwordHash: string }
+      expect(users.createWithProfile).toHaveBeenCalledTimes(1)
+      const createArg = users.createWithProfile.mock.calls[0][0] as { passwordHash: string }
       expect(createArg.passwordHash).not.toBe('Petagil123')
       expect(createArg.passwordHash.startsWith('$argon2')).toBe(true)
 
@@ -91,17 +93,43 @@ describe('AuthService', () => {
       expect(jwt.signAsync).toHaveBeenCalledTimes(3)
     })
 
-    it('rejeita email duplicado com ConflictException (409)', async () => {
+    it('AC1: register tutor repassa phone/city ao createWithProfile', async () => {
+      users.findByEmail.mockResolvedValue(null)
+      users.createWithProfile.mockResolvedValue(makeUser({ role: Role.TUTOR }))
+
+      await service.register({
+        name: 'Maria',
+        email: 'maria@petagil.app',
+        phone: '+55 11 99999-0000',
+        city: 'São Paulo',
+        password: 'Petagil123',
+        role: 'tutor',
+      })
+
+      expect(users.createWithProfile).toHaveBeenCalledTimes(1)
+      const arg = users.createWithProfile.mock.calls[0][0] as {
+        phone: string
+        city: string
+        role: Role
+      }
+      expect(arg.phone).toBe('+55 11 99999-0000')
+      expect(arg.city).toBe('São Paulo')
+      expect(arg.role).toBe(Role.TUTOR)
+    })
+
+    it('AC6: rejeita email duplicado com ConflictException (409) e não cria', async () => {
       users.findByEmail.mockResolvedValue(makeUser())
       await expect(
         service.register({
           name: 'X',
           email: 'maria@petagil.app',
+          phone: '+55 11 99999-0000',
+          city: 'São Paulo',
           password: 'Petagil123',
           role: 'tutor',
         })
       ).rejects.toBeInstanceOf(ConflictException)
-      expect(users.create).not.toHaveBeenCalled()
+      expect(users.createWithProfile).not.toHaveBeenCalled()
     })
   })
 
