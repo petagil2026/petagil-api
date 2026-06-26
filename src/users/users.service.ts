@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { Role, User } from '@prisma/client'
 
 import { PrismaService } from '../prisma/prisma.service'
@@ -66,7 +66,30 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } })
   }
 
-  create(data: { name: string; email: string; passwordHash: string; role: Role }): Promise<User> {
+  async findByIdOrThrow(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } })
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado')
+    }
+    return user
+  }
+
+  create(data: {
+    name: string
+    email: string
+    passwordHash: string
+    role: Role
+    phone?: string
+    city?: string
+  }): Promise<User> {
     return this.prisma.user.create({ data })
+  }
+
+  /** Atualização parcial dos dados que o próprio usuário pode editar. */
+  updateProfile(
+    userId: string,
+    data: { name?: string; phone?: string; city?: string }
+  ): Promise<User> {
+    return this.prisma.user.update({ where: { id: userId }, data })
   }
 }
