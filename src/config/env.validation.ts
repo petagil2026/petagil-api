@@ -36,6 +36,24 @@ export class EnvironmentVariables {
   @IsString()
   JWT_REFRESH_TTL!: string
 
+  // --- Supabase Storage (upload de imagens/documentos) ---
+  // Opcionais: a app sobe sem eles; só o endpoint de upload falha (503) com
+  // mensagem clara. Preencha para habilitar o upload de foto/carteira do CRMV.
+  /** URL do projeto Supabase (ex.: https://<ref>.supabase.co). */
+  @IsOptional()
+  @IsString()
+  SUPABASE_URL?: string
+
+  /** Service Role key do Supabase (lado servidor — NUNCA no app). */
+  @IsOptional()
+  @IsString()
+  SUPABASE_SERVICE_ROLE_KEY?: string
+
+  /** Bucket de Storage onde os arquivos são salvos (default: 'uploads'). */
+  @IsOptional()
+  @IsString()
+  SUPABASE_STORAGE_BUCKET?: string
+
   // --- Servidor ---
   @IsInt()
   PORT!: number

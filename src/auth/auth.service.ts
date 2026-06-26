@@ -73,6 +73,8 @@ export class AuthService {
       email: dto.email,
       passwordHash,
       role: toRoleEnum(dto.role),
+      phone: dto.phone,
+      city: dto.city,
     })
 
     return this.issueTokens(user)

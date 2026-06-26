@@ -38,6 +38,10 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  // Contato coletado no cadastro de conta ("Crie sua conta"). Nullable para não
+  // quebrar usuários/seed pré-existentes; o formulário novo sempre os envia.
+  phone        String?
+  city         String?
   // Papel "primário" escolhido no signup. O que o usuário PODE fazer é definido
   // pelos perfis abaixo (multi-perfil: pode ter mais de um).
   role         Role

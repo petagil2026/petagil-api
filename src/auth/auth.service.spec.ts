@@ -26,6 +26,8 @@ function makeUser(overrides: Partial<User> = {}): User {
     name: 'Maria',
     email: 'maria@petagil.app',
     passwordHash: 'hash',
+    phone: null,
+    city: null,
     role: Role.TUTOR,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
