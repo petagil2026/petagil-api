@@ -33,6 +33,12 @@ enum VetVerificationStatus {
   REJECTED
 }
 
+enum AvailabilityPeriod {
+  MORNING
+  AFTERNOON
+  NIGHT
+}
+
 model User {
   id           String   @id @default(uuid())
   name         String
@@ -65,12 +71,17 @@ model TutorProfile {
   updatedAt DateTime @updatedAt
 }
 
-/// Perfil de Veterinário (com CRMV + clínica). 1:1 opcional com User.
+/// Perfil de Clínica veterinária (papel `vet`). CNPJ da clínica + CRMV do
+/// responsável técnico. 1:1 opcional com User.
 model VetProfile {
   id             String                @id @default(uuid())
   userId         String                @unique
   user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   photoUrl       String?
+  // CNPJ da clínica (14 dígitos, sem máscara). Nullable p/ não quebrar linhas
+  // pré-pivô; o cadastro novo sempre envia. Único: uma clínica por CNPJ.
+  cnpj           String?               @unique
+  // CRMV do responsável técnico da clínica.
   crmvNumber     String
   crmvUf         String
   specialties    String[] // ex.: "Clínica geral", "Silvestres"
@@ -84,7 +95,52 @@ model VetProfile {
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
+  availability VetAvailability?
+  timeOffs     VetTimeOff[]
+
   @@unique([crmvNumber, crmvUf])
+}
+
+/// Regra de disponibilidade recorrente da clínica (vet). 1:1 com VetProfile.
+/// `weekdays` usa a ordem da UI (0=Segunda … 6=Domingo), NÃO o Date.getDay() do JS.
+model VetAvailability {
+  id              String                  @id @default(uuid())
+  vetProfileId    String                  @unique
+  vetProfile      VetProfile              @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+  weekdays        Int[] // 0=Seg … 6=Dom (ordem da UI)
+  slotDurationMin Int                     @default(30) // ∈ {20,30,45,60}
+  periods         VetAvailabilityPeriod[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+}
+
+/// Período habilitado (manhã/tarde/noite) de uma disponibilidade. N:1 com VetAvailability.
+/// `startMinute`/`endMinute` são minutos-do-dia (0..1440) — sem timezone.
+model VetAvailabilityPeriod {
+  id             String             @id @default(uuid())
+  availabilityId String
+  availability   VetAvailability    @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  period         AvailabilityPeriod
+  startMinute    Int
+  endMinute      Int
+
+  @@unique([availabilityId, period])
+}
+
+/// Folga/bloqueio da clínica (vet). N:1 com VetProfile.
+/// Cobre "dia inteiro" (multi-dia) e "faixa de horário". `startsAt`/`endsAt` são instantes UTC.
+model VetTimeOff {
+  id           String     @id @default(uuid())
+  vetProfileId String
+  vetProfile   VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+  startsAt     DateTime
+  endsAt       DateTime
+  allDay       Boolean    @default(false)
+  reason       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([vetProfileId])
 }
 
 /// Perfil de Passeador (dog walker). 1:1 opcional com User.

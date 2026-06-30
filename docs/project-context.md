@@ -27,14 +27,17 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ## Product Context
 
-**PetÁgil** é um marketplace de duas pontas (estilo Doctoralia) que conecta **tutores de pets** ↔ **veterinários**, focado em **agendamento de consultas de rotina** (vacina/vermífugo/check-up). Estratégia: cidades pequenas + nicho de veterinária **silvestre/exótica**. Monetização: assinatura do vet com 1 mês grátis (sem comissão).
+**PetÁgil** é um marketplace **multi-lados** (estilo Doctoralia) que conecta **tutores de pets** ↔ **prestadores de serviços recorrentes**: **clínicas veterinárias** (consulta padrão; rotina vacina/vermífugo/check-up como motor de recorrência) e **passeadores** (dog walking). Estratégia: cidades pequenas + nicho de **clínicas que atendem silvestres/exóticos**. Monetização: assinatura dos prestadores (clínica e passeador) com 1 mês grátis (sem comissão); tutor sempre grátis.
 
-- **Papéis** (`Role` = `tutor` | `vet` | `passeador`) definem toda a navegação e features.
-- **Tutor:** cadastra pet(s), busca vets por proximidade/especialidade, agenda, recebe lembretes.
-- **Vet:** cadastro com verificação de CRMV (semi-automática), perfil público, agenda (confirma/recusa/remarca), avaliações.
-- **Fora do MVP:** pagamento in-app, telemedicina, prontuário completo, CRMV 100% automatizado, ranking pago.
-- Estado atual do código: **fundação + fluxo de onboarding implementado** (Login → "Crie sua conta" → seleção de papel → cadastro do veterinário). Auth real contra a API (register/login). Demais features ainda em placeholder/stub; specs futuras preenchem o resto.
-- Brief completo: `petagil-app/docs/product-brief-PetAgil-2026-06-24.md`.
+> **Decisão de mercado (2026-06-29):** o lado veterinário é a **clínica** (cadastro por CNPJ + CRMV do **responsável técnico**), não o vet autônomo — o agendamento no Brasil se dá direto com a clínica. ⚠️ **Gap código↔produto:** o onboarding já implementado (`feature vet/`, "cadastro do veterinário", CRMV número+UF) ainda reflete o modelo de **vet individual**; migrar para clínica (CNPJ + responsável técnico) e introduzir a **consulta padrão** como serviço agendável são mudanças **PENDENTES** — não assumir que já estão prontas.
+
+- **Papéis** (`Role` = `tutor` | `vet` | `passeador`) definem toda a navegação e features. O papel `vet` representa a **clínica veterinária** (nome do papel no código mantido como `vet`).
+- **Tutor:** cadastra pet(s), busca clínicas/passeadores por proximidade/especialidade/serviço, agenda (consulta padrão ou passeio), recebe lembretes.
+- **Clínica (`vet`):** cadastro com verificação de CRMV semi-automática do responsável técnico (alvo: CNPJ + CRMV; admin valida), perfil público, **consulta padrão** como serviço agendável base, agenda (confirma/recusa/remarca), avaliações.
+- **Passeador:** lado de oferta como a clínica (assinatura, 1 mês grátis) — perfil público, agenda/disponibilidade, recebe/confirma/recusa solicitações de passeio, avaliações. Entra direto no app após o cadastro (sem etapa de verificação profissional no MVP).
+- **Fora do MVP:** pagamento in-app, telemedicina, prontuário completo, CRMV/CNPJ 100% automatizado, ranking pago, menu de tipos de consulta/serviço, gestão de clínica multiusuário (vários vets/unidades/recepcionista).
+- Estado atual do código: **fundação + fluxo de onboarding implementado** (Login → "Crie sua conta" → seleção de papel → cadastro do veterinário **— ainda no modelo vet individual; pivô p/ clínica pendente**). Auth real contra a API (register/login). Demais features ainda em placeholder/stub; specs futuras preenchem o resto.
+- Brief completo: `petagil-app/docs/product-brief-PetAgil-2026-06-24.md` (atualizado 2026-06-29: passeador + clínica).
 
 ## Technology Stack & Versions
 
@@ -75,6 +78,12 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **Referência preenchida:** `src/features/vet/` — `model/` (`types.ts` espelha o contrato do backend; `api.ts` com `createVetProfile`/`uploadImage`/`updateMyName`) e `viewModel/useVetOnboarding.ts` (mutation React Query que orquestra uploads → cria perfil → atualiza nome). Telas de onboarding ficam em `src/screens/auth/` (consomem a feature).
 - Telas em `src/screens/` organizadas por papel: `tutor/`, `vet/`, `auth/`, `role-select/`. Navegação por papel: `RootNavigator` → `AuthNavigator` | `MainNavigator` (tabs do papel).
 
+**Disponibilidade & folgas do vet (feature `vet` + `profiles/vet` no backend):**
+
+- Backend (`petagil-api`): `VetAvailability` (1:1, regra recorrente + `VetAvailabilityPeriod`) e `VetTimeOff` (folgas) atrelados ao `VetProfile`. Endpoints: `GET`/`PUT /profiles/vet/me/availability`, `GET /profiles/vet/me/availability/slots?from&to` (slots gerados **sob demanda**, sem persistir), `GET`/`POST`/`DELETE /profiles/vet/me/timeoff[/:id]`. O cálculo de slots vive num util **neutro/reusável** em `src/common/scheduling/` (puro, sem Prisma/fuso) — a futura disponibilidade do passeador reusa.
+- App: `model` (`getMyAvailability`/`saveMyAvailability`/`getSlots`/`listTimeOff`/`createTimeOff`/`deleteTimeOff`), `viewModel` (`useVetAvailability`/`useSaveVetAvailability`/`useVetTimeOff`/`useCreateTimeOff`/`useDeleteTimeOff`). Telas `MeusHorariosScreen`/`FolgasScreen` consomem. `DateInput` (máscara DD/MM/AAAA em `@/components/ui`, sobre o `Input`) + `parseBrDateToISO`/`buildLocalInstantISO` (`@/utils`) para datas — **sem lib nativa** de máscara/date-picker.
+- **4 convenções canônicas:** (1) hora `"HH:MM"` **zero-padded** na API ⇄ minutos-do-dia (Int) no banco; (2) `weekdays` `0=Seg…6=Dom` (índice de uma data via `(getUTCDay()+6)%7`, **nunca** `getDay()`); (3) fuso fixo `America/Sao_Paulo` (−180, sem DST) resolvido **só no service** (o util de slots é timezone-free); (4) overlap de folga **aberto-fechado estrito** (`sStart < bEnd && sEnd > bStart`).
+
 **Auth & sessão:**
 - `useAuth()` (de `@/app/providers`) é a fonte de verdade de autenticação/papel. NUNCA ler sessão direto do storage em telas — usar o provider.
 - Auth é **real** contra a API: `login(email, password)` e `register(input)`. Ao estender, manter a interface `AuthContextType` para não quebrar consumidores.
@@ -82,8 +91,9 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - `selectedRole` SEMPRE acompanha autenticação — não criar estado "autenticado sem papel".
 
 **Fluxo de onboarding (AuthNavigator):**
-- `Login → CreateAccount ("Crie sua conta") → RoleSelect (seleção de papel) → VetProfile (cadastro do vet)`. O `register` ocorre na **seleção de papel** (precisa do `role`); o rascunho da conta (`AccountDraft`: name/email/phone/city/password) trafega por param de navegação (só em memória). Tutor/passeador entram no app direto após o register; veterinário segue para `VetProfile` e só então conclui.
-- Ler params de tela renderizada fora de um navigator (ex.: fallback `RoleSelect` no `MainNavigator`) via `useContext(NavigationRouteContext)` — `useRoute()` lança nesse caso.
+- `Login → RoleSelect (bifurcação por papel) → Cadastro{Tutor|Vet|Passeador}`. A escolha de papel é a **bifurcação inicial** e o `register` ocorre no **submit de cada cadastro** (o `role` já é conhecido). **Tutor/passeador:** nome/email/telefone/cidade/senha → `register` → `completeOnboarding` (entram no app). **Vet/clínica:** form ÚNICO (dados de acesso + dados da clínica/CRMV/logo) → `register` → `useVetOnboarding` (uploads + `POST /profiles/vet`) → `completeOnboarding`.
+- Campos comuns (nome/email/telefone/cidade/senha) são um **bloco de UI reutilizável** (`screens/auth/CommonAccountFields` + hook `useAccountForm`), não uma tela compartilhada. Tutor/passeador montam o scaffold brand-themed `AccountFormScreen`; o vet reusa o `CommonAccountFields` dentro do `VetProfileForm` via props `accountSlot`/`extraValidate` (valida conta + clínica juntas no submit).
+- `RoleSelect` distingue **onboarding** × **fallback** (já autenticado sem papel, renderizado no `MainNavigator`) por `isAuthenticated`: autenticado → só `selectRole`; não autenticado → navega para o cadastro do papel. Não há mais `AccountDraft` nem param de navegação (a indireção foi eliminada).
 
 **Tema / Design System (OBRIGATÓRIO):**
 - Cores, spacing, tipografia, raios e sombras vêm SEMPRE de `useTheme()`. NUNCA hardcodar cores hex, tamanhos de fonte ou paddings mágicos — usar `theme.colors`, `theme.semantic.*`, `theme.spacing`, `theme.borderRadius`, `theme.textStyles`.
@@ -189,4 +199,5 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Atualizar quando a stack tecnológica mudar (em especial ao subir o Expo SDK).
 - Revisar periodicamente e remover regras que se tornarem óbvias.
 
-Last Updated: 2026-06-25 (fluxo de onboarding: CreateAccount → RoleSelect → VetProfile; feature `vet/`; upload Supabase; `expo-image-picker`)
+Last Updated: 2026-06-29 (Product Context atualizado: marketplace multi-lados — clínicas veterinárias + passeadores; consulta padrão; pivô vet→clínica (CNPJ + responsável técnico) marcado como PENDENTE no código)
+Anterior: 2026-06-25 (fluxo de onboarding: CreateAccount → RoleSelect → VetProfile; feature `vet/`; upload Supabase; `expo-image-picker`)
