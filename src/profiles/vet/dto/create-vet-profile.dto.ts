@@ -5,17 +5,25 @@ import {
   IsBoolean,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator'
 
 export class CreateVetProfileDto {
-  @ApiPropertyOptional({ example: 'https://storage/.../foto.jpg' })
+  @ApiPropertyOptional({ example: 'https://storage/.../logo.jpg' })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   photoUrl?: string
 
+  // CNPJ da clínica: 14 dígitos sem máscara (o app remove pontuação antes de enviar).
+  @ApiProperty({ example: '12345678000190' })
+  @IsString()
+  @Matches(/^\d{14}$/, { message: 'CNPJ deve conter 14 dígitos' })
+  cnpj!: string
+
+  // CRMV do responsável técnico da clínica.
   @ApiProperty({ example: '12345' })
   @IsString()
   @MinLength(1)

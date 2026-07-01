@@ -16,25 +16,27 @@ export class VetProfileController {
   constructor(private readonly service: VetProfileService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Cria o perfil de veterinário (verificação CRMV fica pendente)' })
+  @ApiOperation({
+    summary: 'Cria o perfil de clínica (verificação CRMV do responsável técnico fica pendente)',
+  })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateVetProfileDto) {
     return this.service.create(user.userId, dto)
   }
 
   @Get('me')
-  @ApiOperation({ summary: 'Meu perfil de veterinário' })
+  @ApiOperation({ summary: 'Meu perfil de clínica' })
   findMine(@CurrentUser() user: AuthUser) {
     return this.service.findMine(user.userId)
   }
 
   @Patch('me')
-  @ApiOperation({ summary: 'Atualiza meu perfil de veterinário' })
+  @ApiOperation({ summary: 'Atualiza meu perfil de clínica' })
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateVetProfileDto) {
     return this.service.update(user.userId, dto)
   }
 
   @Delete('me')
-  @ApiOperation({ summary: 'Remove meu perfil de veterinário' })
+  @ApiOperation({ summary: 'Remove meu perfil de clínica' })
   remove(@CurrentUser() user: AuthUser) {
     return this.service.remove(user.userId)
   }
