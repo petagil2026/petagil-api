@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common'
-import { Pet, Species } from '@prisma/client'
+import { Pet, PetSex, Species } from '@prisma/client'
 
 import { PrismaService } from '../prisma/prisma.service'
 import { PetsService, toApiPet } from './pets.service'
@@ -13,6 +13,9 @@ function makePet(o: Partial<Pet> = {}): Pet {
     breed: null,
     ageYears: null,
     photoUrl: null,
+    weightKg: null,
+    sex: null,
+    neutered: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...o,
@@ -77,5 +80,49 @@ describe('PetsService', () => {
     const res = await service.findAll('user-1')
     expect(res).toHaveLength(2)
     expect(res[1].species).toBe('bird')
+  })
+
+  it('toApiPet serializa sex (enum -> minúsculo) e null', () => {
+    expect(toApiPet(makePet({ sex: PetSex.MALE })).sex).toBe('male')
+    expect(toApiPet(makePet({ sex: PetSex.FEMALE })).sex).toBe('female')
+    expect(toApiPet(makePet({ sex: null })).sex).toBeNull()
+  })
+
+  it('toApiPet expõe weightKg e neutered (incl. false != null)', () => {
+    expect(toApiPet(makePet({ weightKg: 4.2, neutered: false })).weightKg).toBe(4.2)
+    expect(toApiPet(makePet({ neutered: false })).neutered).toBe(false)
+    expect(toApiPet(makePet({ neutered: null })).neutered).toBeNull()
+  })
+
+  it('create persiste weightKg/sex/neutered (sex -> enum) e serializa de volta', async () => {
+    prisma.pet.create.mockResolvedValue(
+      makePet({ weightKg: 4.2, sex: PetSex.FEMALE, neutered: true })
+    )
+    const res = await service.create('user-1', {
+      name: 'Mia',
+      species: 'cat',
+      weightKg: 4.2,
+      sex: 'female',
+      neutered: true,
+    })
+    expect(prisma.pet.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        weightKg: 4.2,
+        sex: PetSex.FEMALE,
+        neutered: true,
+      }),
+    })
+    expect(res).toMatchObject({ weightKg: 4.2, sex: 'female', neutered: true })
+  })
+
+  it('update com apenas neutered:false não mexe em sex (undefined) e persiste o campo', async () => {
+    prisma.pet.findUnique.mockResolvedValue(makePet())
+    prisma.pet.update.mockResolvedValue(makePet({ neutered: false }))
+    const res = await service.update('user-1', 'pet-1', { neutered: false })
+    expect(prisma.pet.update).toHaveBeenCalledWith({
+      where: { id: 'pet-1' },
+      data: expect.objectContaining({ neutered: false, sex: undefined }),
+    })
+    expect(res.neutered).toBe(false)
   })
 })

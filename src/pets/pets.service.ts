@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { Pet, Species } from '@prisma/client'
+import { Pet, PetSex, Species } from '@prisma/client'
 
 import { PrismaService } from '../prisma/prisma.service'
-import { ApiSpecies, CreatePetDto } from './dto/create-pet.dto'
+import { ApiSex, ApiSpecies, CreatePetDto } from './dto/create-pet.dto'
 import { UpdatePetDto } from './dto/update-pet.dto'
 
 const SPECIES_TO_ENUM: Record<ApiSpecies, Species> = {
@@ -19,7 +19,17 @@ const SPECIES_TO_API: Record<Species, ApiSpecies> = {
   REPTILE: 'reptile',
 }
 
-/** Forma do Pet exposta na API — `species` em minúsculo. */
+const SEX_TO_ENUM: Record<ApiSex, PetSex> = {
+  male: PetSex.MALE,
+  female: PetSex.FEMALE,
+}
+
+const SEX_TO_API: Record<PetSex, ApiSex> = {
+  MALE: 'male',
+  FEMALE: 'female',
+}
+
+/** Forma do Pet exposta na API — `species`/`sex` em minúsculo. */
 export interface PublicPet {
   id: string
   ownerId: string
@@ -28,6 +38,9 @@ export interface PublicPet {
   breed: string | null
   ageYears: number | null
   photoUrl: string | null
+  weightKg: number | null
+  sex: ApiSex | null
+  neutered: boolean | null
   createdAt: Date
   updatedAt: Date
 }
@@ -41,6 +54,9 @@ export function toApiPet(pet: Pet): PublicPet {
     breed: pet.breed,
     ageYears: pet.ageYears,
     photoUrl: pet.photoUrl,
+    weightKg: pet.weightKg,
+    sex: pet.sex ? SEX_TO_API[pet.sex] : null,
+    neutered: pet.neutered,
     createdAt: pet.createdAt,
     updatedAt: pet.updatedAt,
   }
@@ -59,6 +75,9 @@ export class PetsService {
         breed: dto.breed,
         ageYears: dto.ageYears,
         photoUrl: dto.photoUrl,
+        weightKg: dto.weightKg,
+        sex: dto.sex ? SEX_TO_ENUM[dto.sex] : undefined,
+        neutered: dto.neutered,
       },
     })
     return toApiPet(pet)
@@ -86,6 +105,9 @@ export class PetsService {
         breed: dto.breed,
         ageYears: dto.ageYears,
         photoUrl: dto.photoUrl,
+        weightKg: dto.weightKg,
+        sex: dto.sex ? SEX_TO_ENUM[dto.sex] : undefined,
+        neutered: dto.neutered,
       },
     })
     return toApiPet(pet)

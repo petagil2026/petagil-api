@@ -1,9 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator'
 
 /** Espécies expostas na API (minúsculo), mapeadas para o enum `Species` do Prisma. */
 export const PET_SPECIES = ['dog', 'cat', 'bird', 'reptile'] as const
 export type ApiSpecies = (typeof PET_SPECIES)[number]
+
+/** Sexo exposto na API (minúsculo), mapeado para o enum `PetSex` do Prisma. */
+export const PET_SEX = ['male', 'female'] as const
+export type ApiSex = (typeof PET_SEX)[number]
 
 export class CreatePetDto {
   @ApiProperty({ example: 'Rex' })
@@ -34,4 +50,23 @@ export class CreatePetDto {
   @IsString()
   @MaxLength(500)
   photoUrl?: string
+
+  // Peso em kg (até 2 casas). `@IsPositive` rejeita 0/negativo; `@Max(500)`
+  // acomoda espécies grandes/exóticas do nicho silvestre.
+  @ApiPropertyOptional({ example: 4.2, description: 'Peso em kg' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Max(500)
+  weightKg?: number
+
+  @ApiPropertyOptional({ enum: PET_SEX, example: 'female' })
+  @IsOptional()
+  @IsIn(PET_SEX)
+  sex?: ApiSex
+
+  @ApiPropertyOptional({ example: true, description: 'Castrado' })
+  @IsOptional()
+  @IsBoolean()
+  neutered?: boolean
 }
